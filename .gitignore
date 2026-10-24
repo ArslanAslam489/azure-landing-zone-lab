@@ -8,3 +8,8 @@ azlab.env
 *.key
 id_rsa*
 .vscode/
+
+# build output
+bin/
+obj/
+*.rendered.yaml
