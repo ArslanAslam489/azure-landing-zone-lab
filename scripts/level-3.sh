@@ -32,7 +32,7 @@ az vm list-usage -l "$LOC" --query "[?name.value=='cores' || name.value=='standa
 # Lives in rg-lab-spoke, next to the spoke network, because the private endpoint will go there.
 # Chose Azure SQL Database (serverless, free offer), not Managed Instance: MI is expensive, needs its own subnet, takes hours.
 # SQL and SQLPASS must be in ~/azlab.env (see lab.env.example).
-: "${SQL:?add SQL to ~/azlab.env}" "${SQLPASS:?add SQLPASS to ~/azlab.env}"
+: "${AKS:?add AKS to ~/azlab.env}" "${SQL:?add SQL to ~/azlab.env}" "${SQLPASS:?add SQLPASS to ~/azlab.env}"
 
 # Today the server is public. This is what the pentester found.
 az sql server show -g rg-lab-spoke -n "$SQL" --query "{name:name, public:publicNetworkAccess, fqdn:fullyQualifiedDomainName}" -o table
@@ -59,12 +59,12 @@ az group create -n rg-lab-aks -l "$LOC" --tags owner=arslan env=lab
 #   --network-plugin azure overlay nodes get IPs from our subnet, pods from a separate private range
 #   --vnet-subnet-id               put the node in OUR spoke, so it can use the private corridor later
 # Size not available? Use Standard_B2s_v2 or Standard_B2als_v2.
-az aks create -g rg-lab-aks -n aks-lab -l "$LOC" --tier free --node-resource-group rg-lab-aks-nodes \
+az aks create -g rg-lab-aks -n "$AKS" -l "$LOC" --tier free --node-resource-group rg-lab-aks-nodes \
   --node-count 1 --node-vm-size Standard_B2s --tags owner=arslan env=lab \
   --network-plugin azure --network-plugin-mode overlay --vnet-subnet-id "$AKSSUBNET" --generate-ssh-keys
 
 # Run kubectl INSIDE Azure, so no kubectl on the laptop. (Also saved in ~/azlab.env so new terminals have it.)
-k() { az aks command invoke -g rg-lab-aks -n aks-lab --command "$1" ${2:+--file $2} --query logs -o tsv; }
+k() { az aks command invoke -g rg-lab-aks -n "$AKS" --command "$1" ${2:+--file $2} --query logs -o tsv; }
 k "kubectl get nodes -o wide"     # INTERNAL-IP should come from snet-aks (10.1.8.0/22)
 
 # =========================================================================
@@ -89,7 +89,7 @@ az acr create -g rg-lab-aks -n "$ACR" --sku Basic -l "$LOC" --tags owner=arslan 
 az acr build -r "$ACR" -t report-api:v1 .
 
 # Give the cluster a key to pull from the shelf (AcrPull role for the node identity).
-az aks update -g rg-lab-aks -n aks-lab --attach-acr "$ACR"
+az aks update -g rg-lab-aks -n "$AKS" --attach-acr "$ACR"
 
 sed "s/<ACR>/$ACR/" report-api.yaml > report-api.rendered.yaml
 k "kubectl apply -f report-api.rendered.yaml" report-api.rendered.yaml
@@ -116,5 +116,5 @@ nslookup "$SQL.database.windows.net"
 # =========================================================================
 # End of session
 # =========================================================================
-# az aks stop -g rg-lab-aks -n aks-lab     # node off, everything kept; `az aks start` next time
+# az aks stop -g rg-lab-aks -n "$AKS"     # node off, everything kept; `az aks start` next time
 # SQL auto-pauses after 60 min idle. ACR Basic ~$0.17/day: delete at the end of Level 3.
