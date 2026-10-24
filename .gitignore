@@ -1,0 +1,10 @@
+# secrets and local state
+*.env
+azlab.env
+*.tfstate
+*.tfstate.*
+.terraform/
+*.pem
+*.key
+id_rsa*
+.vscode/
