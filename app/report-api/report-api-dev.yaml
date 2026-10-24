@@ -1,0 +1,54 @@
+# No image build: the .NET SDK image compiles and runs our code at pod start.
+# Source comes from a ConfigMap (create it first, see level-3.sh). Startup takes ~1-2 min.
+# Lab-only shortcut: free-trial subscriptions block ACR Tasks, and we're not adding CI/CD here.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: report-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: report-api}
+  template:
+    metadata:
+      labels: {app: report-api}
+    spec:
+      containers:
+      - name: api
+        image: mcr.microsoft.com/dotnet/sdk:8.0
+        command: ["/bin/bash", "-c"]
+        # ConfigMap files are read-only; copy to a writable folder before building
+        args: ["cp /src-ro/* /src/ && cd /src && dotnet run -c Release --urls http://0.0.0.0:8080"]
+        ports:
+        - containerPort: 8080
+        envFrom:
+        - secretRef: {name: sql-conn}
+        volumeMounts:
+        - {name: src-ro, mountPath: /src-ro}
+        - {name: src, mountPath: /src}
+        startupProbe:       # give the build time before liveness kicks in
+          httpGet: {path: /healthz, port: 8080}
+          periodSeconds: 10
+          failureThreshold: 30
+        readinessProbe:
+          httpGet: {path: /healthz, port: 8080}
+        livenessProbe:
+          httpGet: {path: /healthz, port: 8080}
+        resources:
+          requests: {cpu: 100m, memory: 512Mi}
+          limits: {memory: 1Gi}
+      volumes:
+      - name: src-ro
+        configMap: {name: report-api-src}
+      - name: src
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: report-api
+spec:
+  selector: {app: report-api}
+  ports:
+  - port: 80
+    targetPort: 8080
