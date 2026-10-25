@@ -49,10 +49,16 @@ Rollout order (zero downtime):
 | `publicNetworkAccess` | Enabled | **Disabled** |
 
 ## Break-fix (break → symptom → diagnose → fix)
-_Phase C pending._
+**INC-4471 (P1): "/reports failing, networking did some cleanup."** Score 6.5/8.
+- **Break:** VNet link from `privatelink.database.windows.net` to the AKS VNet deleted.
+- **Symptom:** latent. `/healthz` 200 (shallow, doesn't touch SQL) and `/reports` still worked through pooled SQL connections; fails on the next pod restart / scale-out. Pod `/dns` → public IP; public access disabled → login rejected.
+- **Diagnose:** fresh lookup via `/dns` (public IP = DNS problem, not the endpoint) → list zone links → AKS VNet missing.
+- **Fix:** re-add the link (auto-registration off) → `/dns` = 10.1.2.4.
+- **Prevent:** CanNotDelete lock on the zone (covers child links); RBAC so only the platform team writes private DNS; IaC as source of truth with drift detection; Activity Log alert on `virtualNetworkLinks/delete`; a deep health check that resolves and queries SQL. Policy *audit* only detects.
+- **Also found:** zone not linked to `vnet-spoke` (spoke VMs/jumpbox would resolve publicly); hub link not needed.
 
 ## Interview answers
-_Exam pending (7 questions in `labs/level-3-private-sql-aks.md`)._
+Exam 2/7 (2026-10-24). Retry: Q4 what disabling public access does/doesn't fix, Q5 168.63.129.16, Q7 why "Allow Azure services" is flagged, Q1 all 4 pieces, Q2 3 causes, Q3 forwarding fix, Q6 order + why.
 
 ## What I learned
 | # | Thing | In plain words | Why it matters in real life |

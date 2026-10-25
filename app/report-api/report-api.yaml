@@ -12,11 +12,13 @@ spec:
     spec:
       containers:
       - name: api
-        image: <ACR>.azurecr.io/report-api:v1
+        image: <ACR>.azurecr.io/report-api:v2
         ports:
         - containerPort: 8080
         envFrom:
         - secretRef: {name: sql-conn}
+        env:
+        - {name: REGION, value: swedencentral}   # shown on the page; northeurope in the DR copy
         readinessProbe:
           httpGet: {path: /healthz, port: 8080}
         livenessProbe:

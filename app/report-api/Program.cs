@@ -7,8 +7,20 @@ builder.Logging.AddSimpleConsole(o => { o.SingleLine = true; o.TimestampFormat =
 builder.Services.AddHostedService<ReportProbe>();
 var app = builder.Build();
 
+// Frontend: wwwroot/index.html at "/", calls /info and /reports from the browser.
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 // Liveness/readiness: the process is up. Deliberately does NOT touch the DB.
 app.MapGet("/healthz", () => Results.Ok("ok"));
+
+// Which region and pod served this request? Lets the page show where traffic lands during a failover.
+app.MapGet("/info", () => Results.Ok(new
+{
+    region = Environment.GetEnvironmentVariable("REGION") ?? "unknown",
+    pod = Environment.MachineName,
+    sqlHost = Db.Server,
+}));
 
 // What does the SQL hostname resolve to from inside this pod? (public vs 10.x private IP)
 app.MapGet("/dns", async () =>

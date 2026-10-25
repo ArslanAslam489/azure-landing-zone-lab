@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Report Portal</title>
+<style>
+  :root { --bg: #f6f7f9; --card: #fff; --text: #1d2330; --muted: #667085; --line: #e4e7ec; --ok: #12805c; --bad: #c4320a; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f1218; --card: #171b23; --text: #e6e9ef; --muted: #98a2b3; --line: #2a303c; --ok: #3ccb8f; --bad: #ff7a59; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 24px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 20px; margin-bottom: 16px; }
+  .status { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: center; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; background: var(--muted); }
+  .ok .dot { background: var(--ok); } .bad .dot { background: var(--bad); }
+  .bad #state { color: var(--bad); }
+  .k { color: var(--muted); margin-right: 6px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 8px 4px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 500; font-size: 13px; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  #error { color: var(--bad); white-space: pre-wrap; margin: 0; }
+  footer { color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Report Portal</h1>
+  <p class="sub">Refreshes every 5 seconds.</p>
+
+  <section class="card status" id="status">
+    <span><span class="dot"></span><strong id="state">Checking…</strong></span>
+    <span><span class="k">Region</span><strong id="region">–</strong></span>
+    <span><span class="k">Pod</span><span id="pod">–</span></span>
+    <span><span class="k">Checked</span><span id="time">–</span></span>
+  </section>
+
+  <section class="card">
+    <table>
+      <thead><tr><th>#</th><th>Report</th><th style="text-align:right">Amount</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <p id="error"></p>
+  </section>
+
+  <footer>Served through Azure Front Door → ingress → report-api.</footer>
+</main>
+<script>
+  const $ = id => document.getElementById(id);
+  const money = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
+
+  async function refresh() {
+    $("time").textContent = new Date().toLocaleTimeString();
+    try {
+      const info = await fetch("info", { cache: "no-store" });
+      if (info.ok) { const i = await info.json(); $("region").textContent = i.region; $("pod").textContent = i.pod; }
+
+      const res = await fetch("reports", { cache: "no-store" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(`HTTP ${res.status}${body.detail ? ": " + body.detail : ""}`);
+      }
+      const rows = await res.json();
+      $("rows").innerHTML = rows.map(r =>
+        `<tr><td>${r.id}</td><td>${r.title}</td><td class="num">${money.format(r.amount)}</td></tr>`).join("");
+      $("error").textContent = "";
+      $("status").className = "card status ok";
+      $("state").textContent = "Healthy";
+    } catch (e) {
+      $("status").className = "card status bad";
+      $("state").textContent = "Unavailable";
+      $("error").textContent = e.message;
+    }
+  }
+  refresh();
+  setInterval(refresh, 5000);
+</script>
+</body>
+</html>

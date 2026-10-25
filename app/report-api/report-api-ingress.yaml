@@ -1,0 +1,16 @@
+# One public entry for the cluster (App Routing add-on = managed NGINX).
+# report-api stays ClusterIP; the ingress routes to it. No host rule = catch-all,
+# because Front Door calls the origin by IP. Real world: host = custom domain.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: report-api
+spec:
+  ingressClassName: webapprouting.kubernetes.azure.com
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service: {name: report-api, port: {number: 80}}
