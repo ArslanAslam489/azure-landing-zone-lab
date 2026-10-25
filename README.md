@@ -21,6 +21,7 @@ Each level follows: **predict → run → break → fix → explain**.
 
 ## Key decisions
 <!-- one line per ADR: decision + why + cost -->
+- [ADR-001](adr/adr-001-private-endpoint-placement.md): SQL private endpoint in the spoke, peered to the AKS VNet, central private DNS zone. Why: endpoint stays with the workload, zero-downtime rollout. Cost: one peering; AKS move into the spoke deferred.
 
 ## How to run
 ```bash
